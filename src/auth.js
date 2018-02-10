@@ -1,4 +1,4 @@
-import { CognitoUser, AuthenticationDetails } from 'amazon-cognito-identity-js';
+import { CognitoUser, AuthenticationDetails, CognitoRefreshToken } from 'amazon-cognito-identity-js';
 import { CognitoIdentityCredentials } from 'aws-sdk/global';
 import { Action } from './actions';
 import { getUserAttributes, mkAttrList, sendAttributeVerificationCode } from './attributes';
@@ -166,10 +166,39 @@ const registerUser = (userPool, config, username, password, attributes) =>
       }
     }));
 
+/**
+ * refresh the tokens
+ * @param {object} userPool - a Cognito userpool (e.g. state.cognito.userPool)
+ * @param {string} username - the username
+ * @param {object} refreshToken - a Cognito refreshToken
+ * (e.g. state.cognito.user.signInUserSession.refreshToken)
+ * @return {Promise<object>} a promise that resolves a redux action
+*/
+const refresh = (userPool, username, refreshToken, dispatch) =>
+  new Promise((resolve, reject) => {
+    const user = new CognitoUser({
+      Username: username,
+      Pool: userPool,
+    });
+
+    const cognitoRefreshToken = new CognitoRefreshToken({
+      RefreshToken: refreshToken,
+    });
+    user.refreshSession(cognitoRefreshToken, (err, authResult) => {
+      if (err) {
+        dispatch(Action.error(err.message));
+        reject(err);
+      } else {
+        dispatch(Action.refresh(user));
+        resolve();
+      }
+    });
+  });
 
 export {
   authenticate,
   performLogin,
   registerUser,
   emailVerificationFlow,
+  refresh
 };
